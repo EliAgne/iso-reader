@@ -23,22 +23,39 @@ import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatEnhancedVolum
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatPrimaryVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatVolumePartitionDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.RockRidgeAttribute;
+import com.palantir.isofilereader.isofilereader.read.IsoDataProvider;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
+import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
+import com.palantir.isofilereader.isofilereader.read.IsoSeekableByteChannelDataProvider;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 public class TraditionalIsoReader {
-    private final File isoFile;
+    private final IsoDataProvider isoProvider;
     private char separatorChar = File.separatorChar;
     private int tableOfContentsInUse = -1;
     private boolean useRockRidgeOverStandard = true;
 
+    /**
+     * Constructor for a file based {@link TraditionalIsoReader}.
+     * @param isoFile the raw ISO file to read.
+     */
     public TraditionalIsoReader(File isoFile) {
-        this.isoFile = isoFile;
+        this.isoProvider = new IsoFileDataProvider(isoFile);
+    }
+
+    /**
+     * Constructor for a byte channel based {@link TraditionalIsoReader}.
+     * @param byteChannel the raw byte channel to read.
+     */
+    public TraditionalIsoReader(SeekableByteChannel byteChannel) {
+        this.isoProvider = new IsoSeekableByteChannelDataProvider(byteChannel);
     }
 
     /**
@@ -139,9 +156,9 @@ public class TraditionalIsoReader {
         if (scanLength < 2048) {
             scanLength = 2048;
         }
-        try (RandomAccessFile file = new RandomAccessFile(isoFile, "r")) {
+        try (IsoDataReader isoDataReader = isoProvider.provide()) {
             for (int i = 0; i < (length / IsoFormatConstant.BYTES_PER_SECTOR); i++) {
-                IsoFormatDirectoryRecord[] recordsRead = getRecordsAtSector(file, logSect, parent, i);
+                IsoFormatDirectoryRecord[] recordsRead = getRecordsAtSector(isoDataReader, logSect, parent, i);
                 if (recordsRead != null) {
                     recordLibrary.addAll(Arrays.asList(recordsRead));
                 }
@@ -209,12 +226,12 @@ public class TraditionalIsoReader {
     }
 
     private IsoFormatDirectoryRecord[] getRecordsAtSector(
-            RandomAccessFile file, long logSector, String parent, int loop) throws IOException {
+            IsoDataReader dataProvider, long logSector, String parent, int loop) throws IOException {
         long seekLocation =
                 (IsoFormatConstant.BYTES_PER_SECTOR * logSector) + ((long) IsoFormatConstant.BYTES_PER_SECTOR * loop);
-        file.seek(seekLocation);
+        dataProvider.seek(seekLocation);
         byte[] headerInfo = new byte[IsoFormatConstant.BYTES_PER_SECTOR];
-        int read = file.read(headerInfo, 0, headerInfo.length);
+        int read = dataProvider.read(headerInfo, 0, headerInfo.length);
         if (read != headerInfo.length) {
             return null;
         }
@@ -243,11 +260,11 @@ public class TraditionalIsoReader {
         byte[] headerInfo = new byte[2048];
         long loc = IsoFormatConstant.BYTES_PER_SECTOR * IsoFormatConstant.BUFFER_SECTORS;
         boolean foundTerminator = false;
-        long mTableLoc = isoFile.length();
-        try (RandomAccessFile file = new RandomAccessFile(isoFile, "r")) {
-            file.seek(loc);
+        try (IsoDataReader isoDataReader = isoProvider.provide()) {
+            long mTableLoc = isoDataReader.length();
+            isoDataReader.seek(loc);
             while (loc < mTableLoc && !foundTerminator) {
-                loc += file.read(headerInfo, 0, 2048);
+                loc += isoDataReader.read(headerInfo, 0, 2048);
                 AbstractVolumeDescriptor tempDescriptor = new AbstractVolumeDescriptor(headerInfo);
                 switch (tempDescriptor.getVolumeDescriptorTypeAsInt()) {
                     case AbstractVolumeDescriptor.IsoPrimaryVolumeDescriptor:

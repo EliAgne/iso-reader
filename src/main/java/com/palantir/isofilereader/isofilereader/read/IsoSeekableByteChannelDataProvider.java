@@ -1,6 +1,5 @@
 package com.palantir.isofilereader.isofilereader.read;
 
-import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 
 /**
@@ -24,7 +23,7 @@ public class IsoSeekableByteChannelDataProvider implements IsoDataProvider {
      * {@inheritDoc}
      */
     @Override
-    public IsoDataReader provide() throws IOException {
+    public IsoDataReader provide() {
         return new SeekableByteChannelReader(byteChannel);
     }
 }

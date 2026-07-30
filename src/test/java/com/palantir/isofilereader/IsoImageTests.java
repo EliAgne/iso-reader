@@ -21,12 +21,12 @@ import com.palantir.isofilereader.isofilereader.iso.IsoFormatInternalDataFile;
 import com.palantir.isofilereader.isofilereader.iso.types.AbstractVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatDirectoryRecord;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -104,7 +104,7 @@ public class IsoImageTests {
             IsoFormatDirectoryRecord[] records = iso.getAllFileRecordsInIsoRaw();
             Assertions.assertNotNull(records);
 
-            RandomAccessFile rawIso = iso.getRawIso();
+            IsoDataReader rawIso = iso.getRawReader();
             for (IsoFormatDirectoryRecord singleRecord : records) {
                 if (singleRecord.isDirectory()) {
                     continue;

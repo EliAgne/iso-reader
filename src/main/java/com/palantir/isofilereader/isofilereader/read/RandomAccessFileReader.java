@@ -40,8 +40,40 @@ public class RandomAccessFileReader implements IsoDataReader {
      * {@inheritDoc}
      */
     @Override
+    public int read(byte[] bytes) throws IOException {
+        return randomAccessFile.read(bytes);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int read() throws IOException {
+        return randomAccessFile.read();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public long length() throws IOException {
         return randomAccessFile.length();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long getFilePointer() throws IOException {
+        return randomAccessFile.getFilePointer();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isOpen() {
+        return randomAccessFile.getChannel().isOpen();
     }
 
     /**

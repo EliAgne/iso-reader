@@ -21,13 +21,14 @@ import com.palantir.isofilereader.isofilereader.GenericInternalIsoFile;
 import com.palantir.isofilereader.isofilereader.IsoFileReader;
 import com.palantir.isofilereader.isofilereader.IsoInputStream;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
+import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
@@ -151,14 +152,14 @@ public class SpeedComparisonsTests {
         try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
 
-            RandomAccessFile rawIso = iso.getRawIsoWithAutoClose();
+            IsoDataReader rawDataReader = iso.getRawIsoWithAutoClose();
             List<GenericInternalIsoFile> flatFiles = iso.convertTreeFilesToFlatList(files);
 
             flatFiles.forEach(n -> {
                 String filename = n.getFullFileName('/');
                 if (Arrays.asList(filesToGet).contains(filename)) {
                     try {
-                        InputStream isoIn = iso.getFileStream(rawIso, n);
+                        InputStream isoIn = iso.getFileStream(rawDataReader, n);
                         File tempFile =
                                 Files.createTempFile("image_test", ".bin").toFile();
                         Files.copy(isoIn, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -231,7 +232,7 @@ public class SpeedComparisonsTests {
             try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
                 GenericInternalIsoFile[] files = iso.getAllFiles();
 
-                RandomAccessFile rawIso = iso.getRawIsoWithAutoClose();
+                IsoDataReader rawIso = iso.getRawIsoWithAutoClose();
                 for (String stringOfFileToFind : filesToGet) {
                     Optional<GenericInternalIsoFile> foundFile = iso.getSpecificFileByName(files, stringOfFileToFind);
                     Assertions.assertTrue(foundFile.isPresent());
@@ -262,7 +263,7 @@ public class SpeedComparisonsTests {
             try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
                 GenericInternalIsoFile[] files = iso.getAllFiles();
 
-                RandomAccessFile rawIso = iso.getRawIsoWithAutoClose();
+                IsoDataReader rawIso = iso.getRawIsoWithAutoClose();
                 List<GenericInternalIsoFile> flatFiles = iso.convertTreeFilesToFlatList(files);
 
                 flatFiles.forEach(n -> {
@@ -324,8 +325,8 @@ public class SpeedComparisonsTests {
             };
 
             for (String fileIv : filesIv) {
-                try (RandomAccessFile randomAccessFile = new RandomAccessFile(isoFile, "r")) {
-                    Optional<byte[]> data = IsoFileReader.getFileDataWithIVs(randomAccessFile, imageIv, fileIv);
+                try (IsoDataReader isoDataReader = new IsoFileDataProvider(isoFile).provide()) {
+                    Optional<byte[]> data = IsoFileReader.getFileDataWithIVs(isoDataReader, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));
@@ -394,9 +395,9 @@ public class SpeedComparisonsTests {
             };
 
             for (String fileIv : filesIv) {
-                try (RandomAccessFile randomAccessFile = new RandomAccessFile(isoFile, "r")) {
+                try (IsoDataReader isoDataReader = new IsoFileDataProvider(isoFile).provide()) {
                     Optional<InputStream> data =
-                            IsoFileReader.getFileDataAsStreamWithIVs(randomAccessFile, imageIv, fileIv);
+                            IsoFileReader.getFileDataAsStreamWithIVs(isoDataReader, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));

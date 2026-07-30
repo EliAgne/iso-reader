@@ -24,12 +24,12 @@ import com.palantir.isofilereader.isofilereader.iso.IsoFormatInternalDataFile;
 import com.palantir.isofilereader.isofilereader.iso.types.AbstractVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatDirectoryRecord;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -159,7 +159,7 @@ public class IsoImageLargeTests {
             IsoFormatDirectoryRecord[] records = iso.getAllFileRecordsInIsoRaw();
             Assertions.assertNotNull(records);
 
-            RandomAccessFile rawIso = iso.getRawIso();
+            IsoDataReader rawIso = iso.getRawReader();
             for (IsoFormatDirectoryRecord singleRecord : records) {
                 if (singleRecord.isDirectory()) {
                     continue;
@@ -365,7 +365,7 @@ public class IsoImageLargeTests {
             IsoFileReader isoImage)
             throws IOException {
         InputStream oldLibraryInput = discFs.getInputStream(oldLibrary);
-        RandomAccessFile newLibraryInput = isoImage.getRawIsoWithAutoClose();
+        IsoDataReader newLibraryInput = isoImage.getRawIsoWithAutoClose();
         System.out.println("New System Seeking Logical Sector: " + newLibrary.getLogicalSectorLocation());
         newLibraryInput.seek(newLibrary.getLogicalSectorLocation() * 2048);
         long posToEnd = oldLibrary.getSize();

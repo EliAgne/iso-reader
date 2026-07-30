@@ -29,7 +29,6 @@ import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
 import com.palantir.isofilereader.isofilereader.read.IsoSeekableByteChannelDataProvider;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,7 +108,7 @@ public class TraditionalIsoReader {
 
     /**
      * Get the internal data files for a traditional iso.
-     * @param file file we are reading from
+     * @param isoDataReader {@link IsoDataReader} we are reading from
      * @param logicalSector which logical sector to start at
      * @param size size of the file
      * @param parent parent string, this makes the files much easier to work with
@@ -117,14 +116,14 @@ public class TraditionalIsoReader {
      * @throws IOException can be thrown if file can not be read
      */
     public final IsoFormatInternalDataFile[] getInternalDataFiles(
-            RandomAccessFile file, long logicalSector, long size, String parent) throws IOException {
+            IsoDataReader isoDataReader, long logicalSector, long size, String parent) throws IOException {
         byte[] headerInfo = new byte[IsoFormatConstant.BYTES_PER_SECTOR];
         List<IsoFormatInternalDataFile> gatheringFiles = new ArrayList<>();
         IsoFormatInternalDataFile[] recordsRead;
         for (int i = 0; i < Math.ceil((double) size / IsoFormatConstant.BYTES_PER_SECTOR); i++) {
-            file.seek(IsoFormatConstant.BYTES_PER_SECTOR * (logicalSector + i));
+            isoDataReader.seek(IsoFormatConstant.BYTES_PER_SECTOR * (logicalSector + i));
             // Let's add here a loop to get files in 2048 bit chunks, data will never go across the 2048 barrier
-            int read = file.read(headerInfo, 0, headerInfo.length);
+            int read = isoDataReader.read(headerInfo, 0, headerInfo.length);
             if (read != headerInfo.length) {
                 return null;
             }
@@ -137,7 +136,7 @@ public class TraditionalIsoReader {
                 if (singleRecord.isDirectory()
                         && !singleRecord.getUnderlyingRecord().get().isTopLevelIdentifier()) {
                     singleRecord.addChildren(getInternalDataFiles(
-                            file,
+                            isoDataReader,
                             singleRecord.getUnderlyingRecord().get().getLocOfExtAsLong(),
                             singleRecord.getSize(),
                             parent + separatorChar + singleRecord.getFileName()));

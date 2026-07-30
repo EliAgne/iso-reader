@@ -17,6 +17,8 @@
 package com.palantir.isofilereader.isofilereader;
 
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
+import com.palantir.isofilereader.isofilereader.read.RandomAccessFileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,7 +33,7 @@ public class IsoInputStream extends InputStream {
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
 
-    private final RandomAccessFile file;
+    private final IsoDataReader isoDataReader;
     private final long startingLoc;
     private final long endLoc;
 
@@ -45,10 +47,10 @@ public class IsoInputStream extends InputStream {
      * @throws IOException occurs when reading the underlying file fails
      */
     public IsoInputStream(RandomAccessFile file, GenericInternalIsoFile subFile) throws IOException {
-        this.file = file;
+        this.isoDataReader = new RandomAccessFileReader(file);
         this.startingLoc = subFile.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR;
         this.endLoc = startingLoc + subFile.getSize();
-        this.file.seek(subFile.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR);
+        this.isoDataReader.seek(subFile.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR);
     }
 
     /**
@@ -60,10 +62,41 @@ public class IsoInputStream extends InputStream {
      * @throws IOException occurs when reading the underlying file fails
      */
     public IsoInputStream(RandomAccessFile file, long start, long length) throws IOException {
-        this.file = file;
+        this.isoDataReader = new RandomAccessFileReader(file);
         this.startingLoc = start;
         this.endLoc = startingLoc + length;
-        this.file.seek(start);
+        this.isoDataReader.seek(start);
+    }
+
+    /**
+     * Take in an {@link IsoDataReader} and this library's GenericInternalIsoFile to return an Inputstream of the reader.
+     * This allows for streaming iso data to an application without loading the data into memory, this is useful for
+     * larger ISOs.
+     *
+     * @param isoDataReader An ISO data reader
+     * @param subFile GenericInternalIsoFile or (subtype of UdfInternalDataFile/IsoFormatInternalDataFile) to get
+     * @throws IOException occurs when reading the underlying file fails
+     */
+    public IsoInputStream(IsoDataReader isoDataReader, GenericInternalIsoFile subFile) throws IOException {
+        this.isoDataReader = isoDataReader;
+        this.startingLoc = subFile.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR;
+        this.endLoc = startingLoc + subFile.getSize();
+        this.isoDataReader.seek(subFile.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR);
+    }
+
+    /**
+     * A more raw constructor for an IsoInputStream, give the original data, and a start with length to read.
+     *
+     * @param isoDataReader an ISO data reader
+     * @param start start location in bytes of the subfile
+     * @param length length of the subfile
+     * @throws IOException occurs when reading the data throws an I/O error
+     */
+    public IsoInputStream(IsoDataReader isoDataReader, long start, long length) throws IOException {
+        this.isoDataReader = isoDataReader;
+        this.startingLoc = start;
+        this.endLoc = startingLoc + length;
+        this.isoDataReader.seek(start);
     }
 
     /**
@@ -73,10 +106,10 @@ public class IsoInputStream extends InputStream {
      */
     @Override
     public int read() throws IOException {
-        if (file.getFilePointer() == endLoc) {
+        if (isoDataReader.getFilePointer() == endLoc) {
             return -1;
         }
-        return file.read();
+        return isoDataReader.read();
     }
 
     /**
@@ -95,14 +128,14 @@ public class IsoInputStream extends InputStream {
             return 0;
         }
         int bytesRead;
-        if ((off + len + file.getFilePointer()) >= endLoc) {
-            int coveredLen = (int) (endLoc - (file.getFilePointer() - off));
-            bytesRead = file.read(byteArray, off, coveredLen);
+        if ((off + len + isoDataReader.getFilePointer()) >= endLoc) {
+            int coveredLen = (int) (endLoc - (isoDataReader.getFilePointer() - off));
+            bytesRead = isoDataReader.read(byteArray, off, coveredLen);
             if (bytesRead == 0) {
                 return -1;
             }
         } else {
-            bytesRead = file.read(byteArray, off, len);
+            bytesRead = isoDataReader.read(byteArray, off, len);
         }
         return bytesRead;
     }
@@ -153,7 +186,7 @@ public class IsoInputStream extends InputStream {
      */
     @Override
     public int available() throws IOException {
-        return (int) (endLoc - file.getFilePointer());
+        return (int) (endLoc - isoDataReader.getFilePointer());
     }
 
     /**
@@ -162,7 +195,7 @@ public class IsoInputStream extends InputStream {
      * @throws IOException error getting current location pointer
      */
     public long position() throws IOException {
-        return file.getFilePointer() - startingLoc;
+        return isoDataReader.getFilePointer() - startingLoc;
     }
 
     /**
@@ -182,7 +215,7 @@ public class IsoInputStream extends InputStream {
         if (startingLoc + seekLoc > getLength()) {
             throw new IOException("Seeking past end of file");
         }
-        file.seek(startingLoc + seekLoc);
+        isoDataReader.seek(startingLoc + seekLoc);
     }
 
     /**
@@ -194,7 +227,7 @@ public class IsoInputStream extends InputStream {
      */
     @Override
     public byte[] readAllBytes() throws IOException {
-        int size = (int) (endLoc - file.getFilePointer());
+        int size = (int) (endLoc - isoDataReader.getFilePointer());
         return readNBytes(size);
     }
 
@@ -246,7 +279,7 @@ public class IsoInputStream extends InputStream {
      */
     @Override
     public void close() throws IOException {
-        file.close();
+        isoDataReader.close();
     }
 
     @Override
@@ -260,7 +293,7 @@ public class IsoInputStream extends InputStream {
      */
     @Override
     public synchronized void reset() throws IOException {
-        file.seek(startingLoc);
+        isoDataReader.seek(startingLoc);
     }
 
     /**

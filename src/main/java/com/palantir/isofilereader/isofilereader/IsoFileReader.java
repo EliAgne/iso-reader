@@ -23,6 +23,9 @@ import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatDirectoryRecord;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatEnhancedVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatPrimaryVolumeDescriptor;
+import com.palantir.isofilereader.isofilereader.read.IsoDataProvider;
+import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
+import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import com.palantir.isofilereader.isofilereader.udf.UdfInternalDataFile;
 import com.palantir.isofilereader.isofilereader.udf.UdfIsoReader;
@@ -39,9 +42,9 @@ import java.util.List;
 import java.util.Optional;
 
 public class IsoFileReader implements AutoCloseable {
-    private final File isoFile;
+    private final IsoDataProvider isoDataProvider;
     private final TraditionalIsoReader traditionalIsoReader;
-    private final List<RandomAccessFile> openFileHandles = new ArrayList<>();
+    private final List<IsoDataReader> openFileHandles = new ArrayList<>();
     private int udfModeInUse = 0; // 0 is not initialized, 1 is do not use, 2 is use. This is used to manually override
     // the auto-detection of UDF.
     private final UdfIsoReader udfIsoReader;
@@ -54,7 +57,7 @@ public class IsoFileReader implements AutoCloseable {
      * @throws IOException in attempting find the correct headers to use, a IO exception occurred
      */
     public IsoFileReader(File isoFile) throws IOException {
-        this.isoFile = isoFile;
+        this.isoDataProvider = new IsoFileDataProvider(isoFile);
         this.traditionalIsoReader = new TraditionalIsoReader(isoFile);
         this.udfIsoReader = new UdfIsoReader(isoFile);
         findOptimalSettings();
@@ -67,7 +70,7 @@ public class IsoFileReader implements AutoCloseable {
      * @param setting header setting to use, formatted as "#,#,#"
      */
     public IsoFileReader(File isoFile, String setting) {
-        this.isoFile = isoFile;
+        this.isoDataProvider = new IsoFileDataProvider(isoFile);
         this.traditionalIsoReader = new TraditionalIsoReader(isoFile);
         this.udfIsoReader = new UdfIsoReader(isoFile);
         implementGivenSetting(setting);
@@ -78,8 +81,8 @@ public class IsoFileReader implements AutoCloseable {
      */
     @Override
     public void close() {
-        for (RandomAccessFile temp : openFileHandles) {
-            if (temp != null && temp.getChannel().isOpen()) {
+        for (IsoDataReader temp : openFileHandles) {
+            if (temp != null && temp.isOpen()) {
                 try {
                     temp.close();
                 } catch (IOException e) {
@@ -187,24 +190,24 @@ public class IsoFileReader implements AutoCloseable {
     }
 
     /**
-     * Get raw access to the iso for file operations. YOU NEED TO CLOSE THIS!
+     * Get raw access to the iso data. YOU NEED TO CLOSE THIS!
      *
-     * @return RandomAccessFile access with read to the file
+     * @return {@link IsoDataReader}
      * @throws FileNotFoundException if the file is not found this can error
      */
-    public RandomAccessFile getRawIso() throws FileNotFoundException {
-        return new RandomAccessFile(isoFile, "r");
+    public IsoDataReader getRawReader() throws IOException {
+        return isoDataProvider.provide();
     }
 
     /**
      * This is the same as getRawIso but tracks which file handles are open for auto closing, safer to use, but if a lot
      * of file handles are being used can decrease perf.
      *
-     * @return get a RandomAccessFile handle
-     * @throws FileNotFoundException if file cant be found then this is thrown.
+     * @return get a IsoDataReader
+     * @throws IOException if some I/O error occurs.
      */
-    public RandomAccessFile getRawIsoWithAutoClose() throws FileNotFoundException {
-        RandomAccessFile temp = new RandomAccessFile(isoFile, "r");
+    public IsoDataReader getRawIsoWithAutoClose() throws IOException {
+        IsoDataReader temp = isoDataProvider.provide();
         openFileHandles.add(temp);
         return temp;
     }
@@ -318,17 +321,17 @@ public class IsoFileReader implements AutoCloseable {
     public byte[] getFileBytes(GenericInternalIsoFile file) throws IOException {
         long dataSize = file.getSize();
         byte[] data = new byte[(int) dataSize];
-        RandomAccessFile randomAccessFile = null;
+        IsoDataReader isoDataReader = null;
         try {
-            randomAccessFile = getRawIso();
-            randomAccessFile.seek(file.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR);
-            int read = randomAccessFile.read(data, 0, (int) dataSize);
+            isoDataReader = getRawReader();
+            isoDataReader.seek(file.getLogicalSectorLocation() * IsoFormatConstant.BYTES_PER_SECTOR);
+            int read = isoDataReader.read(data, 0, (int) dataSize);
             if (read != (int) dataSize) {
                 throw new IOException("Failed to read correct amount of data.");
             }
         } finally {
-            if (randomAccessFile != null && randomAccessFile.getChannel().isOpen()) {
-                randomAccessFile.close();
+            if (isoDataReader != null && isoDataReader.isOpen()) {
+                isoDataReader.close();
             }
         }
         return data;
@@ -410,6 +413,19 @@ public class IsoFileReader implements AutoCloseable {
     }
 
     /**
+     * Get a file stream of the specific GenericInternalIsoFile in the image. This allows for streaming of large files.
+     * This method DOES NOT create a new RandomAccessFile.
+     *
+     * @param isoDataReader the ISO data reader
+     * @param subFile GenericInternalIsoFile to get
+     * @return InputStream
+     * @throws IOException can occur when failing to read underlying media
+     */
+    public InputStream getFileStream(IsoDataReader isoDataReader, GenericInternalIsoFile subFile) throws IOException {
+        return new IsoInputStream(isoDataReader, subFile);
+    }
+
+    /**
      * Searches the collection of files a file given as a representation. This is useful if you know the file you want.
      *
      * @param files file collection to search
@@ -474,19 +490,19 @@ public class IsoFileReader implements AutoCloseable {
     /**
      * Initialization Vectors are for systems that use the same images very frequently and do not want to have the
      * overhead of constantly reading the table of contents. The idea is you can get the IV of the image and the IV
-     * of the file, then next time you go to read the file, if the quick IV check passes, then just read the specific
-     * file at that location.
+     * of the reader, then next time you go to read the reader, if the quick IV check passes, then just read the
+     * specific file at that location.
      *
      * @return string of the IV of this image
      * @throws IOException failure to read inside the image where needed
      * @throws NoSuchAlgorithmException failure to load MD5 in this JDK
      */
     public String getInitializationVectorForImage() throws IOException, NoSuchAlgorithmException {
-        RandomAccessFile file = getRawIsoWithAutoClose();
-        return getInitializationVectorForImageWithPassedFile(file);
+        IsoDataReader isoDataReader = getRawIsoWithAutoClose();
+        return getInitializationVectorForImageWithPassedFile(isoDataReader);
     }
 
-    private static String getInitializationVectorForImageWithPassedFile(RandomAccessFile file)
+    private static String getInitializationVectorForImageWithPassedFile(IsoDataReader isoDataReader)
             throws IOException, NoSuchAlgorithmException {
         String iv = "I1|";
         int bytesToRead = 2048;
@@ -496,11 +512,11 @@ public class IsoFileReader implements AutoCloseable {
         iv += numberOfReadLocations;
         iv += "|";
 
-        iv += file.length();
+        iv += isoDataReader.length();
         iv += "|";
 
         MessageDigest md = MessageDigest.getInstance("MD5");
-        updateHashWithData(md, file, bytesToRead, numberOfReadLocations);
+        updateHashWithData(md, isoDataReader, bytesToRead, numberOfReadLocations);
 
         byte[] bytes = md.digest();
         StringBuilder sb = new StringBuilder();
@@ -513,13 +529,14 @@ public class IsoFileReader implements AutoCloseable {
     }
 
     private static void updateHashWithData(
-            MessageDigest md, RandomAccessFile file, int bytesToRead, int numberOfReadLocations) throws IOException {
-        for (long loc = 0; loc < numberOfReadLocations; loc += (file.length() / numberOfReadLocations) + 1) {
-            file.seek(loc);
+            MessageDigest md, IsoDataReader isoDataReader, int bytesToRead, int numberOfReadLocations)
+            throws IOException {
+        for (long loc = 0; loc < numberOfReadLocations; loc += (isoDataReader.length() / numberOfReadLocations) + 1) {
+            isoDataReader.seek(loc);
             byte[] byteArray = new byte[bytesToRead];
             int bytesCount = 0;
 
-            bytesCount = file.read(byteArray);
+            bytesCount = isoDataReader.read(byteArray);
             md.update(byteArray, 0, bytesCount);
         }
     }
@@ -579,10 +596,10 @@ public class IsoFileReader implements AutoCloseable {
 
     public static Optional<byte[]> getFileDataWithIVsFromFile(File file, String imageIv, String fileIv)
             throws IOException, NoSuchAlgorithmException {
-        RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
-        Optional<byte[]> data = getFileDataWithIVs(randomAccessFile, imageIv, fileIv);
-        if (randomAccessFile.getChannel().isOpen()) {
-            randomAccessFile.close();
+        IsoDataReader isoDataReader = new IsoFileDataProvider(file).provide();
+        Optional<byte[]> data = getFileDataWithIVs(isoDataReader, imageIv, fileIv);
+        if (isoDataReader.isOpen()) {
+            isoDataReader.close();
         }
         return data;
     }
@@ -594,27 +611,27 @@ public class IsoFileReader implements AutoCloseable {
      * Note: This will use the RandomAccessFile to access and seek that file! This is not Thread safe for
      * multithreading!
      *
-     * @param rafFile Raw image as a RandomAccessFile
+     * @param isoDataReader Raw image as a RandomAccessFile
      * @param imageIv Initialization vector of the image, gotten from another time when the full library was used
      * @param fileIv Initialization vector of the file, gotten from another time when the full library was used
      * @return Either bytes of the file, or empty if IVs fail
      * @throws IOException Opening the image can fail resulting in a IOException
      * @throws NoSuchAlgorithmException MD5 is used to verify the IV, if MD5 is not in the local JDK this will fail
      */
-    public static Optional<byte[]> getFileDataWithIVs(RandomAccessFile rafFile, String imageIv, String fileIv)
+    public static Optional<byte[]> getFileDataWithIVs(IsoDataReader isoDataReader, String imageIv, String fileIv)
             throws IOException, NoSuchAlgorithmException {
         /*
            Example
            I-IV: I1|2048|10|1310720|345bd27a7de3762f50b260f197023c13
            F-IV: F1|2048|4|53|550|/test2/aligned.md5|281864d2591d72115a41593c788cda4c
         */
-        if (!getInitializationVectorForImageWithPassedFile(rafFile).equals(imageIv)) {
+        if (!getInitializationVectorForImageWithPassedFile(isoDataReader).equals(imageIv)) {
             return Optional.empty();
         }
         String[] oldFiv = fileIv.split("\\|", -1);
 
         String fiv = reconstructFileIv(
-                rafFile,
+                isoDataReader,
                 Integer.parseInt(oldFiv[1]), // Bytes To Read
                 Integer.parseInt(oldFiv[2]), // Places To Read
                 Long.parseLong(oldFiv[3]), // Size
@@ -627,21 +644,21 @@ public class IsoFileReader implements AutoCloseable {
         long dataSize = Long.parseLong(oldFiv[3]);
         byte[] data = new byte[(int) dataSize];
         try {
-            rafFile.seek(Long.parseLong(oldFiv[4]) * IsoFormatConstant.BYTES_PER_SECTOR);
-            int read = rafFile.read(data, 0, (int) dataSize);
+            isoDataReader.seek(Long.parseLong(oldFiv[4]) * IsoFormatConstant.BYTES_PER_SECTOR);
+            int read = isoDataReader.read(data, 0, (int) dataSize);
             if (read != (int) dataSize) {
                 throw new IOException("Failed to read correct amount of data.");
             }
         } finally {
-            if (rafFile.getChannel().isOpen()) {
-                rafFile.close();
+            if (isoDataReader.isOpen()) {
+                isoDataReader.close();
             }
         }
         return Optional.of(data);
     }
 
     private static String reconstructFileIv(
-            RandomAccessFile rafFile,
+            IsoDataReader rafFile,
             int bytesToRead,
             int numberOfReadLocations,
             long size,
@@ -665,7 +682,7 @@ public class IsoFileReader implements AutoCloseable {
      * Get the data in a file from an image, initialized by the image and file IVs, returning an InputStream. This
      * function is not thread safe, since it will access your RandomAccessFile given and use that in the InputStream.
      *
-     * @param rafFile RandomAccessFile that will back the input stream
+     * @param isoDataReader RandomAccessFile that will back the input stream
      * @param imageIv Initialization vector of the image, gotten from another time when the full library was used
      * @param fileIv Initialization vector of the file, gotten from another time when the full library was used
      * @return Optional of either the InputStream requested or an empty optional with nothing in it
@@ -673,19 +690,19 @@ public class IsoFileReader implements AutoCloseable {
      * @throws NoSuchAlgorithmException MD5 is used to verify IVs
      */
     public static Optional<InputStream> getFileDataAsStreamWithIVs(
-            RandomAccessFile rafFile, String imageIv, String fileIv) throws IOException, NoSuchAlgorithmException {
+            IsoDataReader isoDataReader, String imageIv, String fileIv) throws IOException, NoSuchAlgorithmException {
         /*
            Example
            I-IV: I1|2048|10|1310720|345bd27a7de3762f50b260f197023c13
            F-IV: F1|2048|4|53|550|/test2/aligned.md5|281864d2591d72115a41593c788cda4c
         */
-        if (!getInitializationVectorForImageWithPassedFile(rafFile).equals(imageIv)) {
+        if (!getInitializationVectorForImageWithPassedFile(isoDataReader).equals(imageIv)) {
             return Optional.empty();
         }
         String[] oldFiv = fileIv.split("\\|", -1);
 
         String fiv = reconstructFileIv(
-                rafFile,
+                isoDataReader,
                 Integer.parseInt(oldFiv[1]), // Bytes To Read
                 Integer.parseInt(oldFiv[2]), // Places To Read
                 Long.parseLong(oldFiv[3]), // Size
@@ -696,7 +713,9 @@ public class IsoFileReader implements AutoCloseable {
         }
 
         IsoInputStream isoInputStream = new IsoInputStream(
-                rafFile, Long.parseLong(oldFiv[4]) * IsoFormatConstant.BYTES_PER_SECTOR, Long.parseLong(oldFiv[3]));
+                isoDataReader,
+                Long.parseLong(oldFiv[4]) * IsoFormatConstant.BYTES_PER_SECTOR,
+                Long.parseLong(oldFiv[3]));
         return Optional.of(isoInputStream);
     }
 
@@ -714,7 +733,7 @@ public class IsoFileReader implements AutoCloseable {
      */
     public static Optional<InputStream> getFileDataAsStreamWithIVsFromFile(File file, String imageIv, String fileIv)
             throws IOException, NoSuchAlgorithmException {
-        RandomAccessFile rafFile = new RandomAccessFile(file, "r");
-        return getFileDataAsStreamWithIVs(rafFile, imageIv, fileIv);
+        IsoDataReader isoDataReader = new IsoFileDataProvider(file).provide();
+        return getFileDataAsStreamWithIVs(isoDataReader, imageIv, fileIv);
     }
 }

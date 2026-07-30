@@ -1,4 +1,4 @@
-package com.palantir.isofilereader.isofilereader;
+package com.palantir.isofilereader.isofilereader.read;
 
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;

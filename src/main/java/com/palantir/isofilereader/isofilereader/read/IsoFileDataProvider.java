@@ -1,4 +1,4 @@
-package com.palantir.isofilereader.isofilereader;
+package com.palantir.isofilereader.isofilereader.read;
 
 import java.io.File;
 import java.io.IOException;

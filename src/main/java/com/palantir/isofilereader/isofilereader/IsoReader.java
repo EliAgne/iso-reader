@@ -26,6 +26,7 @@ import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatPrimaryVolume
 import com.palantir.isofilereader.isofilereader.read.IsoDataProvider;
 import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
 import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
+import com.palantir.isofilereader.isofilereader.read.IsoSeekableByteChannelDataProvider;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import com.palantir.isofilereader.isofilereader.udf.UdfInternalDataFile;
 import com.palantir.isofilereader.isofilereader.udf.UdfIsoReader;
@@ -34,6 +35,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -41,7 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class IsoFileReader implements AutoCloseable {
+public class IsoReader implements AutoCloseable {
     private final IsoDataProvider isoDataProvider;
     private final TraditionalIsoReader traditionalIsoReader;
     private final List<IsoDataReader> openFileHandles = new ArrayList<>();
@@ -56,7 +58,7 @@ public class IsoFileReader implements AutoCloseable {
      * @param isoFile file to use
      * @throws IOException in attempting find the correct headers to use, a IO exception occurred
      */
-    public IsoFileReader(File isoFile) throws IOException {
+    public IsoReader(File isoFile) throws IOException {
         this.isoDataProvider = new IsoFileDataProvider(isoFile);
         this.traditionalIsoReader = new TraditionalIsoReader(isoFile);
         this.udfIsoReader = new UdfIsoReader(isoFile);
@@ -69,10 +71,38 @@ public class IsoFileReader implements AutoCloseable {
      * @param isoFile file to use
      * @param setting header setting to use, formatted as "#,#,#"
      */
-    public IsoFileReader(File isoFile, String setting) {
+    public IsoReader(File isoFile, String setting) {
         this.isoDataProvider = new IsoFileDataProvider(isoFile);
         this.traditionalIsoReader = new TraditionalIsoReader(isoFile);
         this.udfIsoReader = new UdfIsoReader(isoFile);
+        implementGivenSetting(setting);
+    }
+
+    /**
+     * Create a new ISO reader with the given {@link SeekableByteChannel}. This constructor uses the input setting for
+     * the headers to use.
+     *
+     * @param channel the channel to use.
+     * @throws IOException in attempting find the correct headers to use, a IO exception occurred
+     */
+    public IsoReader(SeekableByteChannel channel) throws IOException {
+        this.isoDataProvider = new IsoSeekableByteChannelDataProvider(channel);
+        this.traditionalIsoReader = new TraditionalIsoReader(channel);
+        this.udfIsoReader = new UdfIsoReader(channel);
+        findOptimalSettings();
+    }
+
+    /**
+     * Create a new ISO reader with the given {@link SeekableByteChannel}. This constructor uses the input setting for
+     * the headers to use.
+     *
+     * @param channel the channel to use.
+     * @param setting header setting to use, formatted as "#,#,#"
+     */
+    public IsoReader(SeekableByteChannel channel, String setting) {
+        this.isoDataProvider = new IsoSeekableByteChannelDataProvider(channel);
+        this.traditionalIsoReader = new TraditionalIsoReader(channel);
+        this.udfIsoReader = new UdfIsoReader(channel);
         implementGivenSetting(setting);
     }
 

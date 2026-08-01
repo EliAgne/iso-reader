@@ -16,7 +16,7 @@
 
 package com.palantir.isofilereader;
 
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.iso.IsoFormatInternalDataFile;
 import com.palantir.isofilereader.isofilereader.iso.types.AbstractVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
@@ -40,7 +40,7 @@ public class IsoImageTests {
     void getImageHeader() {
         File isoFile = new File("./src/test/resources/small.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             AbstractVolumeDescriptor[] headers = iso.getTraditionalIsoReader().getVolumeDescriptors();
             Assertions.assertNotNull(headers);
             Assertions.assertNotEquals(headers.length, 0);
@@ -53,7 +53,7 @@ public class IsoImageTests {
     void getImageHeaders() {
         File isoFile = new File("./src/test/resources/small.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             AbstractVolumeDescriptor[] header = iso.getTraditionalIsoReader().getVolumeDescriptors();
             Assertions.assertNotNull(header);
         } catch (Exception e) {
@@ -65,7 +65,7 @@ public class IsoImageTests {
     void getProcessedImageFiles() {
         File isoFile = new File("./src/test/resources/small.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             IsoFormatInternalDataFile[] records = iso.getAllFilesAsIsoFormatInternalDataFile();
             Assertions.assertNotNull(records);
             Helpers.treePrint(iso.getSeparatorChar(), records);
@@ -78,7 +78,7 @@ public class IsoImageTests {
     void getImageFiles() {
         File isoFile = new File("./src/test/resources/small.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             IsoFormatDirectoryRecord[] records = iso.getAllFileRecordsInIsoRaw();
             Assertions.assertNotNull(records);
             for (IsoFormatDirectoryRecord singleRecord : records) {
@@ -94,7 +94,7 @@ public class IsoImageTests {
     void getImageFilesBytes() {
         File isoFile = new File("./src/test/resources/small.iso");
         File tempDir = null;
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             tempDir = File.createTempFile(Long.toString(System.currentTimeMillis()), "");
             tempDir.deleteOnExit();
             System.out.println("Creating temp folder: " + tempDir.getAbsolutePath());
@@ -204,7 +204,7 @@ public class IsoImageTests {
     @SuppressWarnings("StrictUnusedVariable")
     void getInternalFileData() {
         File isoFile = new File("./src/test/resources/small.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             IsoFormatInternalDataFile[] isoInternalDataFile = iso.getAllFilesAsIsoFormatInternalDataFile();
             Assertions.assertNotNull(isoInternalDataFile);
 

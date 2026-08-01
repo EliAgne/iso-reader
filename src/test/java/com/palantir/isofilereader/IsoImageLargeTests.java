@@ -19,7 +19,7 @@ package com.palantir.isofilereader;
 import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileEntry;
 import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileSystem;
 import com.palantir.isofilereader.isofilereader.GenericInternalIsoFile;
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.iso.IsoFormatInternalDataFile;
 import com.palantir.isofilereader.isofilereader.iso.types.AbstractVolumeDescriptor;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
@@ -43,7 +43,7 @@ public class IsoImageLargeTests {
     void getImageHeaders() {
         File isoFile = new File("./test_isos/rocky.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             AbstractVolumeDescriptor[] header = iso.getTraditionalIsoReader().getVolumeDescriptors();
             Assertions.assertNotNull(header);
         } catch (Exception e) {
@@ -55,7 +55,7 @@ public class IsoImageLargeTests {
     void getProcessedImageFiles() {
         File isoFile = new File("./test_isos/rocky.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             System.out.println(iso.getCurrentSetting());
             iso.setUdfModeInUse(false);
             System.out.println(iso.getCurrentSetting());
@@ -91,7 +91,7 @@ public class IsoImageLargeTests {
     @Test
     void getImageFiles() {
         File isoFile = new File("./test_isos/rocky.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertFalse(iso.isUdfModeInUse());
             IsoFormatDirectoryRecord[] records = iso.getAllFileRecordsInIsoRaw();
             Assertions.assertNotNull(records);
@@ -123,7 +123,7 @@ public class IsoImageLargeTests {
     void getImageFilesAllFileNameTypes() {
         File isoFile = new File("./test_isos/rocky.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             AbstractVolumeDescriptor[] headers = iso.getTraditionalIsoReader().getVolumeDescriptors();
             for (int i = 0; i < headers.length; i++) {
                 AbstractVolumeDescriptor vol = headers[i];
@@ -149,7 +149,7 @@ public class IsoImageLargeTests {
     void getImageFilesBytes() {
         File isoFile = new File("./test_isos/rocky.iso");
         File tempDir = null;
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             tempDir = File.createTempFile(Long.toString(System.currentTimeMillis()), "");
             tempDir.deleteOnExit();
             System.out.println("Creating temp folder: " + tempDir.getAbsolutePath());
@@ -201,7 +201,7 @@ public class IsoImageLargeTests {
     void getBestModeForIso() {
         File isoFile = new File("./test_isos/rocky.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             AbstractVolumeDescriptor[] headers = iso.getTraditionalIsoReader().getVolumeDescriptors();
             Assertions.assertFalse(iso.isUdfModeInUse());
             System.out.println(
@@ -220,7 +220,7 @@ public class IsoImageLargeTests {
     void workingWithExtendedAttributesImageFiles() {
         File isoFile = new File("./test_isos/rocky.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             IsoFormatInternalDataFile[] records = iso.getAllFilesAsIsoFormatInternalDataFile();
             Assertions.assertNotNull(records);
             List<GenericInternalIsoFile> files = iso.convertTreeFilesToFlatList(records);
@@ -245,7 +245,7 @@ public class IsoImageLargeTests {
     void getFileData() {
         File isoFile = new File("./test_isos/rocky.iso");
         IsoFormatInternalDataFile[] records = null;
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertFalse(iso.isUdfModeInUse());
             records = iso.getAllFilesAsIsoFormatInternalDataFile();
         } catch (IOException e) {
@@ -254,7 +254,7 @@ public class IsoImageLargeTests {
         Assertions.assertNotNull(records);
         for (IsoFormatInternalDataFile fileInIso : records) {
             if (fileInIso.getFullFileName(File.separatorChar).equals("/GPL")) {
-                try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+                try (IsoReader iso = new IsoReader(isoFile)) {
                     byte[] data = iso.getFileBytes(fileInIso);
                     System.out.println(new String(data, StandardCharsets.UTF_8));
                 } catch (IOException e) {
@@ -265,7 +265,7 @@ public class IsoImageLargeTests {
     }
 
     private boolean compareToPreviousLibrary(File iso, boolean tryWorseTables) {
-        try (IsoFileReader isoImage = new IsoFileReader(iso)) {
+        try (IsoReader isoImage = new IsoReader(iso)) {
             isoImage.setUdfModeInUse(false); // We do not want to allow Udf if it exists on image
             isoImage.findOptimalSettings();
             Iso9660FileSystem discFs = new Iso9660FileSystem(iso, true);
@@ -362,7 +362,7 @@ public class IsoImageLargeTests {
             Iso9660FileEntry oldLibrary,
             Iso9660FileSystem discFs,
             GenericInternalIsoFile newLibrary,
-            IsoFileReader isoImage)
+            IsoReader isoImage)
             throws IOException {
         InputStream oldLibraryInput = discFs.getInputStream(oldLibrary);
         IsoDataReader newLibraryInput = isoImage.getRawIsoWithAutoClose();
@@ -402,7 +402,7 @@ public class IsoImageLargeTests {
         File[] allImageFiles = folderOfImages.listFiles();
         Assertions.assertNotNull(allImageFiles);
         for (File singleFile : allImageFiles) {
-            try (IsoFileReader isoImage = new IsoFileReader(singleFile)) {
+            try (IsoReader isoImage = new IsoReader(singleFile)) {
                 if (isoImage.hasUdfFormat() && !isoImage.hasIsoFormat()) {
                     System.out.println("Skipping: " + singleFile.getAbsolutePath());
                     continue;
@@ -418,7 +418,7 @@ public class IsoImageLargeTests {
     @Test
     void getSpecificFileMd5() {
         File isoFile = new File("./test_isos/rocky.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Assertions.assertNotNull(files);
             Optional<GenericInternalIsoFile> bootWim = iso.getSpecificFileByName(files, "/images/install.img");

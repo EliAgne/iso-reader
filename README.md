@@ -85,7 +85,7 @@ dependencies {
 `UdfInternalDataFile` are extensions of `GenericInternalIsoFile`. For most use cases `GenericInternalIsoFile`
 can be used, if needed you can access those files as their more specific types and get additional metadata.
 
-`IsoFileReader` is the helper class that handles accessing the sub-readers of `TraditionalIsoReader` and `UdfIsoReader`.
+`IsoReader` is the helper class that handles accessing the sub-readers of `TraditionalIsoReader` and `UdfIsoReader`.
 
 #### ECMA-119/ISO-9660
 

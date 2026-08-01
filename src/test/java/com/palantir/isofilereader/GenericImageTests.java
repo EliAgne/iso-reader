@@ -17,7 +17,7 @@
 package com.palantir.isofilereader;
 
 import com.palantir.isofilereader.isofilereader.GenericInternalIsoFile;
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import com.palantir.isofilereader.isofilereader.udf.UdfInternalDataFile;
 import java.io.ByteArrayOutputStream;
@@ -39,7 +39,7 @@ public class GenericImageTests {
     void genericImageTest() throws IOException, UdfFormatException, NoSuchAlgorithmException {
         File isoFile = new File("./src/test/resources/small_only_udf_260.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             try {
                 System.out.println("I-IV: " + iso.getInitializationVectorForImage());
             } catch (NoSuchAlgorithmException e) {
@@ -63,7 +63,7 @@ public class GenericImageTests {
     void genericInputStreamUdfTest() {
         File isoFile = new File("./src/test/resources/small_only_udf_260.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Optional<GenericInternalIsoFile> generalFile = iso.getSpecificFileByName(
                     files, "/test/2da3ad96e6cbf41723f9c56d743390412da3ad96e6cbf41723f9c56d7433.txt");
@@ -136,7 +136,7 @@ public class GenericImageTests {
     void genericInputStreamIsoTest() {
         File isoFile = new File("./src/test/resources/iso_test.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Optional<GenericInternalIsoFile> generalFile = iso.getSpecificFileByName(
                     files, "/mactest-mactest-mactest-mactest-mactest-mactest-mactest-mact.txt");
@@ -181,7 +181,7 @@ public class GenericImageTests {
     void genericFileGetBytesIsoTest() {
         File isoFile = new File("./src/test/resources/iso_test.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Optional<GenericInternalIsoFile> generalFile = iso.getSpecificFileByName(
                     files, "/mactest-mactest-mactest-mactest-mactest-mactest-mactest-mact.txt");

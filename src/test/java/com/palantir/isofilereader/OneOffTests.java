@@ -16,7 +16,7 @@
 
 package com.palantir.isofilereader;
 
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.iso.IsoFormatInternalDataFile;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatDirectoryRecord;
 import java.io.File;
@@ -36,7 +36,7 @@ public class OneOffTests {
         File isoFile = new File("./test_isos/rocky.iso");
 
         boolean findTheLongOne = false;
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             System.out.println("Best ToC:  " + iso.getTraditionalIsoReader().getTableOfContentsInUse());
             System.out.println("RockRidge: " + iso.getTraditionalIsoReader().isUseRockRidgeOverStandard());
 

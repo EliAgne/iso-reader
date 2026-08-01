@@ -18,8 +18,8 @@ package com.palantir.isofilereader;
 
 import com.github.stephenc.javaisotools.loopfs.iso9660.Iso9660FileSystem;
 import com.palantir.isofilereader.isofilereader.GenericInternalIsoFile;
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
 import com.palantir.isofilereader.isofilereader.IsoInputStream;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.iso.types.IsoFormatConstant;
 import com.palantir.isofilereader.isofilereader.read.IsoDataReader;
 import com.palantir.isofilereader.isofilereader.read.IsoFileDataProvider;
@@ -149,7 +149,7 @@ public class SpeedComparisonsTests {
     @SuppressWarnings("UnusedMethod")
     private long[] testPureFileTimings(File isoFile, String[] filesToGet, String[] md5s) throws Exception {
         List<File> tempFiles = new ArrayList<>();
-        try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
+        try (IsoReader iso = new IsoReader(isoFile, "0,1,0")) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
 
             IsoDataReader rawDataReader = iso.getRawIsoWithAutoClose();
@@ -229,7 +229,7 @@ public class SpeedComparisonsTests {
             AtomicInteger filesFound = new AtomicInteger();
             // I am using precomputed settings for this image, because the other library doesnt even check for those,
             // so its only fair that I dont have to take the scan time into account!
-            try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
+            try (IsoReader iso = new IsoReader(isoFile, "0,1,0")) {
                 GenericInternalIsoFile[] files = iso.getAllFiles();
 
                 IsoDataReader rawIso = iso.getRawIsoWithAutoClose();
@@ -260,7 +260,7 @@ public class SpeedComparisonsTests {
         for (int i = 0; i < newTimings.length; i++) {
             startTime = System.currentTimeMillis();
             AtomicInteger filesFound = new AtomicInteger();
-            try (IsoFileReader iso = new IsoFileReader(isoFile, "0,1,0")) {
+            try (IsoReader iso = new IsoReader(isoFile, "0,1,0")) {
                 GenericInternalIsoFile[] files = iso.getAllFiles();
 
                 IsoDataReader rawIso = iso.getRawIsoWithAutoClose();
@@ -290,7 +290,7 @@ public class SpeedComparisonsTests {
 
     private void getMethod3IVs(File isoFile, String[] filesToGet) throws IOException {
         System.out.println("Current Generated IVs:");
-        try (IsoFileReader isoFileReader = new IsoFileReader(isoFile)) {
+        try (IsoReader isoFileReader = new IsoReader(isoFile)) {
             System.out.println("Image IV: " + isoFileReader.getInitializationVectorForImage());
 
             GenericInternalIsoFile[] internalFiles = isoFileReader.getAllFiles();
@@ -326,7 +326,7 @@ public class SpeedComparisonsTests {
 
             for (String fileIv : filesIv) {
                 try (IsoDataReader isoDataReader = new IsoFileDataProvider(isoFile).provide()) {
-                    Optional<byte[]> data = IsoFileReader.getFileDataWithIVs(isoDataReader, imageIv, fileIv);
+                    Optional<byte[]> data = IsoReader.getFileDataWithIVs(isoDataReader, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));
@@ -361,7 +361,7 @@ public class SpeedComparisonsTests {
 
             for (String fileIv : filesIv) {
                 try {
-                    Optional<byte[]> data = IsoFileReader.getFileDataWithIVsFromFile(isoFile, imageIv, fileIv);
+                    Optional<byte[]> data = IsoReader.getFileDataWithIVsFromFile(isoFile, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));
@@ -396,8 +396,7 @@ public class SpeedComparisonsTests {
 
             for (String fileIv : filesIv) {
                 try (IsoDataReader isoDataReader = new IsoFileDataProvider(isoFile).provide()) {
-                    Optional<InputStream> data =
-                            IsoFileReader.getFileDataAsStreamWithIVs(isoDataReader, imageIv, fileIv);
+                    Optional<InputStream> data = IsoReader.getFileDataAsStreamWithIVs(isoDataReader, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));
@@ -433,8 +432,7 @@ public class SpeedComparisonsTests {
 
             for (String fileIv : filesIv) {
                 try {
-                    Optional<InputStream> data =
-                            IsoFileReader.getFileDataAsStreamWithIVsFromFile(isoFile, imageIv, fileIv);
+                    Optional<InputStream> data = IsoReader.getFileDataAsStreamWithIVsFromFile(isoFile, imageIv, fileIv);
                     if (data.isPresent()) {
                         String md5 = getMD5Hash(data.get());
                         Assertions.assertTrue(Arrays.asList(md5s).contains(md5));

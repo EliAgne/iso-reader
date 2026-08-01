@@ -17,7 +17,7 @@
 package com.palantir.isofilereader;
 
 import com.palantir.isofilereader.isofilereader.GenericInternalIsoFile;
-import com.palantir.isofilereader.isofilereader.IsoFileReader;
+import com.palantir.isofilereader.isofilereader.IsoReader;
 import com.palantir.isofilereader.isofilereader.udf.UdfFormatException;
 import com.palantir.isofilereader.isofilereader.udf.UdfInternalDataFile;
 import com.palantir.isofilereader.isofilereader.udf.types.toc.GenericDescriptor;
@@ -45,7 +45,7 @@ public class UdfImageTests {
     void enablesUdfMode() {
         File isoFile = new File("./test_isos/windows.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertTrue(iso.isUdfModeInUse());
         } catch (Exception e) {
             Assertions.fail("Could not get header", e);
@@ -56,7 +56,7 @@ public class UdfImageTests {
     void getAllFilesAndTestReadMicrosoft() {
         File isoFile = new File("./test_isos/windows.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertTrue(iso.isUdfModeInUse());
 
             GenericInternalIsoFile[] files = iso.getAllFiles();
@@ -184,7 +184,7 @@ public class UdfImageTests {
     void getAllFilesAndTestRead() {
         File isoFile = new File("./src/test/resources/small_only_udf_260.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertTrue(iso.isUdfModeInUse());
 
             GenericInternalIsoFile[] files = iso.getAllFiles();
@@ -223,7 +223,7 @@ public class UdfImageTests {
     void getImageDescriptors() {
         File isoFile = new File("./test_isos/windows.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             List<GenericDescriptor> descriptors = iso.getUdfIsoReader().getDiscDescriptors();
             Assertions.assertNotNull(descriptors);
             Assertions.assertNotEquals(descriptors.size(), 0);
@@ -236,7 +236,7 @@ public class UdfImageTests {
     void getImageDescriptorsWithPrimingReader() {
         File isoFile = new File("./test_isos/windows.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             List<GenericDescriptor> descriptors = iso.getUdfIsoReader().getDiscDescriptors();
             Assertions.assertNotNull(descriptors);
             Assertions.assertNotEquals(descriptors.size(), 0);
@@ -248,7 +248,7 @@ public class UdfImageTests {
     @Test
     void getProcessedImageFiles() {
         File isoFile = new File("./test_isos/windows.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             UdfInternalDataFile[] rootFiles = iso.getUdfIsoReader().getAllFiles();
             Assertions.assertNotNull(rootFiles);
             Helpers.treePrint(iso.getSeparatorChar(), rootFiles);
@@ -260,7 +260,7 @@ public class UdfImageTests {
     @Test
     void getSpecificFiles() {
         File isoFile = new File("./test_isos/windows.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Assertions.assertNotNull(files);
             Optional<GenericInternalIsoFile> bootWim = iso.getSpecificFileByName(files, "/sources/boot.wim");
@@ -288,7 +288,7 @@ public class UdfImageTests {
     @Test
     void transferToTest() {
         File isoFile = new File("./test_isos/windows.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Assertions.assertNotNull(files);
             Optional<GenericInternalIsoFile> bootWim = iso.getSpecificFileByName(files, "/sources/boot.wim");
@@ -309,7 +309,7 @@ public class UdfImageTests {
     @Test
     void getSpecificFileMd5() {
         File isoFile = new File("./test_isos/windows.iso");
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             GenericInternalIsoFile[] files = iso.getAllFiles();
             Assertions.assertNotNull(files);
             Optional<GenericInternalIsoFile> bootWim = iso.getSpecificFileByName(files, "/sources/boot.wim");
@@ -352,7 +352,7 @@ public class UdfImageTests {
     void getImageFilesBytes() {
         File isoFile = new File("./src/test/resources/small_only_udf_260.iso");
         File tempDir = null;
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             tempDir = File.createTempFile(Long.toString(System.currentTimeMillis()), "");
             tempDir.deleteOnExit();
             System.out.println("Creating temp folder: " + tempDir.getAbsolutePath());
@@ -418,7 +418,7 @@ public class UdfImageTests {
     void tagChecksumTest() throws Exception {
         File isoFile = new File("./src/test/resources/udf_flag_validation.iso");
 
-        try (IsoFileReader iso = new IsoFileReader(isoFile)) {
+        try (IsoReader iso = new IsoReader(isoFile)) {
             Assertions.assertTrue(iso.isUdfModeInUse());
         } catch (Exception e) {
             Assertions.fail("Could not get header", e);

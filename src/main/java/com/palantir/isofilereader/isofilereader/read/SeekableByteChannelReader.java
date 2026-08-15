@@ -9,6 +9,11 @@ import java.nio.channels.SeekableByteChannel;
  */
 public class SeekableByteChannelReader implements IsoDataReader {
     /**
+     * Whether or not this channel is owned, meaning that the owner is required to close the stream.
+     */
+    private final boolean ownChannel;
+
+    /**
      * The backing {@link SeekableByteChannel}.
      */
     private final SeekableByteChannel seekableByteChannel;
@@ -24,6 +29,17 @@ public class SeekableByteChannelReader implements IsoDataReader {
      */
     public SeekableByteChannelReader(SeekableByteChannel seekableByteChannel) {
         this.seekableByteChannel = seekableByteChannel;
+        this.ownChannel = false;
+    }
+
+    /**
+     * Constructor.
+     * @param seekableByteChannel The backing {@link SeekableByteChannel}.
+     * @param ownChannel Whether or not this channel is owned, meaning that the owner is required to close the stream.
+     */
+    public SeekableByteChannelReader(SeekableByteChannel seekableByteChannel, boolean ownChannel) {
+        this.seekableByteChannel = seekableByteChannel;
+        this.ownChannel = ownChannel;
     }
 
     /**
@@ -102,7 +118,7 @@ public class SeekableByteChannelReader implements IsoDataReader {
      */
     @Override
     public void close() throws IOException {
-        if (seekableByteChannel.isOpen()) {
+        if (ownChannel && seekableByteChannel.isOpen()) {
             seekableByteChannel.close();
         }
     }

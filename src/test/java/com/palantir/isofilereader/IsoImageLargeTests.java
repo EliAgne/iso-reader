@@ -30,7 +30,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -52,10 +54,45 @@ public class IsoImageLargeTests {
     }
 
     @Test
+    void getImageHeaders_fileChannel() throws IOException {
+        File isoFile = new File("./test_isos/rocky.iso");
+
+        try (IsoReader iso = new IsoReader(FileChannel.open(isoFile.toPath(), StandardOpenOption.READ))) {
+            AbstractVolumeDescriptor[] header = iso.getTraditionalIsoReader().getVolumeDescriptors();
+            Assertions.assertNotNull(header);
+        } catch (Exception e) {
+            Assertions.fail("Could not get header");
+        }
+    }
+
+    @Test
     void getProcessedImageFiles() {
         File isoFile = new File("./test_isos/rocky.iso");
 
         try (IsoReader iso = new IsoReader(isoFile)) {
+            System.out.println(iso.getCurrentSetting());
+            iso.setUdfModeInUse(false);
+            System.out.println(iso.getCurrentSetting());
+            iso.findOptimalSettings();
+            System.out.println(iso.getCurrentSetting());
+            // I know these images don't contain UDF data, so testing they do not enable the mode.
+            Assertions.assertFalse(iso.isUdfModeInUse());
+            System.out.println(iso.getTraditionalIsoReader().getTableOfContentsInUse());
+            IsoFormatDirectoryRecord rootRecord = iso.getTraditionalIsoReader().getRootDirectoryOfCurrentToC();
+            System.out.println("Enhanced loc of ext: " + rootRecord.getLocOfExtAsLong());
+            IsoFormatInternalDataFile[] records = iso.getAllFilesAsIsoFormatInternalDataFile();
+            Assertions.assertNotNull(records);
+            treePrint(iso.getSeparatorChar(), records);
+        } catch (Exception e) {
+            Assertions.fail("Could not get header", e);
+        }
+    }
+
+    @Test
+    void getProcessedImageFiles_fileChannel() {
+        File isoFile = new File("./test_isos/rocky.iso");
+
+        try (IsoReader iso = new IsoReader(FileChannel.open(isoFile.toPath(), StandardOpenOption.READ))) {
             System.out.println(iso.getCurrentSetting());
             iso.setUdfModeInUse(false);
             System.out.println(iso.getCurrentSetting());
@@ -109,6 +146,27 @@ public class IsoImageLargeTests {
         }
     }
 
+    @Test
+    void getImageFiles_fileChannel() {
+        File isoFile = new File("./test_isos/rocky.iso");
+        try (IsoReader iso = new IsoReader(FileChannel.open(isoFile.toPath(), StandardOpenOption.READ))) {
+            Assertions.assertFalse(iso.isUdfModeInUse());
+            IsoFormatDirectoryRecord[] records = iso.getAllFileRecordsInIsoRaw();
+            Assertions.assertNotNull(records);
+            for (IsoFormatDirectoryRecord singleRecord : records) {
+                System.out.print(singleRecord.getParent());
+                System.out.println(File.separatorChar + singleRecord.getFileIdentifierAsString());
+            }
+            System.out.println("get as internaldatafiles");
+            for (IsoFormatInternalDataFile singleRecord : iso.getAllFilesAsIsoFormatInternalDataFile()) {
+                System.out.println("-" + singleRecord.getFullFileName('/'));
+                printRecursive(singleRecord, "");
+            }
+        } catch (Exception e) {
+            Assertions.fail("Could not get header", e);
+        }
+    }
+
     private void printRecursive(IsoFormatInternalDataFile singleRecord, String header) {
         String localHeaderInfo = "-" + header;
         for (IsoFormatInternalDataFile single : singleRecord.getChildren()) {
@@ -124,6 +182,32 @@ public class IsoImageLargeTests {
         File isoFile = new File("./test_isos/rocky.iso");
 
         try (IsoReader iso = new IsoReader(isoFile)) {
+            AbstractVolumeDescriptor[] headers = iso.getTraditionalIsoReader().getVolumeDescriptors();
+            for (int i = 0; i < headers.length; i++) {
+                AbstractVolumeDescriptor vol = headers[i];
+                System.out.println("Volume Header, type: " + vol.getVolumeDescriptorTypeAsInt() + ", Version: "
+                        + vol.getVolumeDescriptorVersion());
+                iso.getTraditionalIsoReader().setTableOfContentsInUse(i);
+                iso.getTraditionalIsoReader().setUseRockRidgeOverStandard(false);
+                IsoFormatInternalDataFile[] records = iso.getAllFilesAsIsoFormatInternalDataFile();
+                Assertions.assertNotNull(records);
+                treePrint(iso.getSeparatorChar(), records);
+
+                iso.getTraditionalIsoReader().setUseRockRidgeOverStandard(true);
+                records = iso.getAllFilesAsIsoFormatInternalDataFile();
+                Assertions.assertNotNull(records);
+                treePrint(iso.getSeparatorChar(), records);
+            }
+        } catch (IOException e) {
+            Assertions.fail("Could not pull file names in all modes", e);
+        }
+    }
+
+    @Test
+    void getImageFilesAllFileNameTypes_fileChannel() {
+        File isoFile = new File("./test_isos/rocky.iso");
+
+        try (IsoReader iso = new IsoReader(FileChannel.open(isoFile.toPath(), StandardOpenOption.READ))) {
             AbstractVolumeDescriptor[] headers = iso.getTraditionalIsoReader().getVolumeDescriptors();
             for (int i = 0; i < headers.length; i++) {
                 AbstractVolumeDescriptor vol = headers[i];
